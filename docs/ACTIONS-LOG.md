@@ -50,3 +50,6 @@ Generated credentials are intentionally recorded only in the gitignored
 17. Initialized local Git history containing only reproducible infrastructure,
    scripts, templates, and documentation. Runtime data, credentials, keys,
    certificates, runner registration, and backups remain ignored.
+18. Installed the host Helm CLI from the Arch repository (`v4.2.2`) through
+   `pkexec`. The private repository command is documented but was not persisted,
+   avoiding plaintext ChartMuseum credentials in Helm client configuration.
