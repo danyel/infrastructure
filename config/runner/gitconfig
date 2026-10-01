@@ -1,0 +1,3 @@
+[http "https://forgejo.local/"]
+	sslCAInfo = /usr/local/share/ca-certificates/local-dev-ca.crt
+

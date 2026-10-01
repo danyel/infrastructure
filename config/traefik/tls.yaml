@@ -1,0 +1,49 @@
+tls:
+  certificates:
+    - certFile: /certs/local-dev.crt
+      keyFile: /certs/local-dev.key
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/local-dev.crt
+        keyFile: /certs/local-dev.key
+
+http:
+  routers:
+    forgejo:
+      rule: Host(`forgejo.local`)
+      entryPoints: [websecure]
+      tls: {}
+      service: forgejo
+    sonarqube:
+      rule: Host(`sonar.local`)
+      entryPoints: [websecure]
+      tls: {}
+      service: sonarqube
+    rancher:
+      rule: Host(`rancher.local`)
+      entryPoints: [websecure]
+      tls: {}
+      service: rancher
+    chartmuseum:
+      rule: Host(`helm.local`)
+      entryPoints: [websecure]
+      tls: {}
+      service: chartmuseum
+  services:
+    forgejo:
+      loadBalancer:
+        servers:
+          - url: http://forgejo:3000
+    sonarqube:
+      loadBalancer:
+        servers:
+          - url: http://sonarqube:9000
+    rancher:
+      loadBalancer:
+        servers:
+          - url: http://rancher:80
+    chartmuseum:
+      loadBalancer:
+        servers:
+          - url: http://chartmuseum:8080

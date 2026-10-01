@@ -1,0 +1,205 @@
+name: ${COMPOSE_PROJECT_NAME:-local-dev-platform}
+
+services:
+  traefik:
+    image: ${TRAEFIK_IMAGE}
+    restart: unless-stopped
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --ping=true
+      - --providers.file.filename=/etc/traefik/dynamic/tls.yaml
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/traefik:/etc/traefik/dynamic:ro
+      - ./certs:/certs:ro
+    networks:
+      edge:
+        aliases:
+          - forgejo.local
+          - sonar.local
+          - rancher.local
+          - helm.local
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels:
+      local.platform.component: proxy
+
+  forgejo-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: forgejo
+      POSTGRES_USER: forgejo
+      POSTGRES_PASSWORD: ${FORGEJO_DB_PASSWORD}
+    volumes:
+      - ./data/forgejo-db:/var/lib/postgresql/data
+    networks:
+      - forgejo-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo -d forgejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  forgejo:
+    image: ${FORGEJO_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: forgejo-db:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD}
+      FORGEJO__server__DOMAIN: forgejo.local
+      FORGEJO__server__ROOT_URL: https://forgejo.local/
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__SSH_DOMAIN: forgejo.local
+      FORGEJO__server__SSH_PORT: "2222"
+      FORGEJO__server__START_SSH_SERVER: "true"
+      FORGEJO__server__SSH_LISTEN_PORT: "2222"
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__service__REQUIRE_SIGNIN_VIEW: "false"
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__actions__ENABLED: "true"
+      FORGEJO__time__DEFAULT_UI_LOCATION: ${TZ}
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./data/forgejo:/var/lib/gitea
+      - ./config/forgejo:/etc/gitea
+      - ./certs/local-ca.crt:/etc/ssl/certs/local-dev-ca.crt:ro
+    networks:
+      edge: {}
+      forgejo-backend: {}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.forgejo.rule: Host(`forgejo.local`)
+      traefik.http.routers.forgejo.entrypoints: websecure
+      traefik.http.routers.forgejo.tls: "true"
+      traefik.http.services.forgejo.loadbalancer.server.port: "3000"
+
+  runner:
+    image: ${RUNNER_IMAGE}
+    profiles: ["runner"]
+    restart: unless-stopped
+    depends_on:
+      - forgejo
+    command: forgejo-runner daemon --config /config/config.yaml
+    environment:
+      SSL_CERT_FILE: /certs/local-ca.crt
+    group_add:
+      - ${DOCKER_GID}
+    volumes:
+      - ./config/runner:/config
+      - ./data/runner:/data
+      - ./certs/local-ca.crt:/certs/local-ca.crt:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - edge
+
+  sonar-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD}
+    volumes:
+      - ./data/sonar-db:/var/lib/postgresql/data
+    networks:
+      - sonar-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  sonarqube:
+    image: ${SONARQUBE_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD}
+      SONAR_WEB_JAVAADDITIONALOPTS: -Dsonar.web.context=
+    volumes:
+      - ./data/sonarqube/data:/opt/sonarqube/data
+      - ./data/sonarqube/extensions:/opt/sonarqube/extensions
+      - ./data/sonarqube/logs:/opt/sonarqube/logs
+    networks:
+      edge: {}
+      sonar-backend: {}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.sonarqube.rule: Host(`sonar.local`)
+      traefik.http.routers.sonarqube.entrypoints: websecure
+      traefik.http.routers.sonarqube.tls: "true"
+      traefik.http.services.sonarqube.loadbalancer.server.port: "9000"
+
+  rancher:
+    image: ${RANCHER_IMAGE}
+    restart: unless-stopped
+    privileged: true
+    environment:
+      CATTLE_BOOTSTRAP_PASSWORD: ${RANCHER_BOOTSTRAP_PASSWORD}
+      CATTLE_SERVER_URL: https://rancher.local
+    volumes:
+      - ./data/rancher:/var/lib/rancher
+    networks:
+      edge: {}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.rancher.rule: Host(`rancher.local`)
+      traefik.http.routers.rancher.entrypoints: websecure
+      traefik.http.routers.rancher.tls: "true"
+      traefik.http.services.rancher.loadbalancer.server.port: "80"
+
+  chartmuseum:
+    image: ${CHARTMUSEUM_IMAGE}
+    restart: unless-stopped
+    environment:
+      STORAGE: local
+      STORAGE_LOCAL_ROOTDIR: /charts
+      BASIC_AUTH_USER: ${CHARTMUSEUM_USER}
+      BASIC_AUTH_PASS: ${CHARTMUSEUM_PASSWORD}
+      ALLOW_OVERWRITE: "true"
+      DISABLE_API: "false"
+    volumes:
+      - ./charts:/charts
+      - ./config/chartmuseum:/etc/chartmuseum:ro
+    networks:
+      edge: {}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.chartmuseum.rule: Host(`helm.local`)
+      traefik.http.routers.chartmuseum.entrypoints: websecure
+      traefik.http.routers.chartmuseum.tls: "true"
+      traefik.http.services.chartmuseum.loadbalancer.server.port: "8080"
+
+networks:
+  edge:
+    name: local-dev-edge
+  forgejo-backend:
+    internal: true
+  sonar-backend:
+    internal: true
