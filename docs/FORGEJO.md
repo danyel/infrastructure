@@ -39,8 +39,9 @@ git remote add origin ssh://git@forgejo.dev:2222/forgejo-admin/REPOSITORY.git
 ## SonarQube Actions example
 
 Add `SONAR_TOKEN` as an Actions secret and `SONAR_HOST_URL` as an Actions variable.
-The runner mounts the local CA into job containers and configures Git and Node to
-trust it.
+The runner uses a Docker-capable Actions job image, mounts the local CA into job
+containers, and configures Git and Node to trust it. It also bind-mounts the host
+Docker socket so jobs can run Docker against the host daemon.
 
 ```yaml
 name: quality
@@ -65,28 +66,7 @@ that tool.
 
 ## Helm repository
 
-Install Helm on Arch if needed:
-
-```bash
-sudo pacman -S --needed helm
-```
-
-Add the private chart repository:
-
-```bash
-helm repo add local https://helm.dev \
-  --username helm-admin \
-  --password '9c68d12548bfeaadfdb6b6a00a5b8d99d57f309e956f11a4' \
-  --ca-file certs/local-ca.crt
-helm repo update
-```
-
-Upload a packaged chart:
-
-```bash
-curl --fail --cacert certs/local-ca.crt \
-  -u 'helm-admin:9c68d12548bfeaadfdb6b6a00a5b8d99d57f309e956f11a4' \
-  --data-binary '@my-chart-0.1.0.tgz' \
-  https://helm.dev/api/charts
-```
-
+See [Helm deployments](HELM-DEPLOYMENTS.md) for creating and publishing an
+application chart, adding ChartMuseum to Rancher, and deploying locally or from
+Forgejo Actions. Use the generated credentials in `secrets/credentials.md`;
+never commit them in a workflow or Helm values file.

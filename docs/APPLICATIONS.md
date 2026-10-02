@@ -57,3 +57,19 @@ openssl verify -CAfile certs/local-ca.crt certs/local-dev.crt
 ```
 
 Or run `./scripts/verify-applications.sh` after both application stacks are up.
+
+
+### The Secure Way (Adding the CA Data)
+If you prefer to fix the error properly by making your local client trust the certificate, you need to pull Rancher's self-signed Root CA certificate and inject it directly into your kubeconfig.
+1. Download the CA certificate from your Rancher server using openssl:bash
+```
+``` 
+openssl s_client -showcerts -connect rancher.dev:443 </dev/null 2>/dev/null | openssl x509 -outform PEM > current-rancher-ca.crt 
+``` 
+```
+2. Inject the downloaded certificate into your active cluster context:bash
+kubectl config set-cluster $(kubectl config current-context) --certificate-authority=current-rancher-ca.crt --embed-certs=true
+3. Clean up the temporary file:bash
+rm current-rancher-ca.crt
+
+kubectl cluster-info

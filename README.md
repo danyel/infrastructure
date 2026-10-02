@@ -16,7 +16,9 @@ and persistent data:
 Start with [docs/INSTALL.md](docs/INSTALL.md). Generated credentials are written to
 the gitignored `secrets/credentials.md`. Forgejo runner keys and CI settings are in
 [docs/FORGEJO.md](docs/FORGEJO.md). Migration and recovery are in
-[docs/MIGRATION.md](docs/MIGRATION.md).
+[docs/MIGRATION.md](docs/MIGRATION.md). Publishing charts and deploying
+applications locally or from Forgejo is covered in
+[Helm deployments](docs/HELM-DEPLOYMENTS.md).
 
 Go Loose and Go Guess run from their own Compose projects and join the shared
 `local-dev-edge` network. See [Application HTTPS](docs/APPLICATIONS.md).

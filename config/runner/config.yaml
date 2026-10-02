@@ -10,8 +10,8 @@ runner:
   fetch_timeout: 5s
   fetch_interval: 2s
   labels:
-    - docker:docker://node:20-bookworm
-    - ubuntu-latest:docker://node:20-bookworm
+    - docker:docker://ghcr.io/catthehacker/ubuntu:act-22.04
+    - ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04
 
 cache:
   enabled: true
@@ -23,12 +23,13 @@ container:
   network: local-dev-edge
   privileged: false
   options: >-
-    -v /home/dnoulet/go/infrasctruture/certs/local-ca.crt:/usr/local/share/ca-certificates/local-dev-ca.crt:ro
-    -v /home/dnoulet/go/infrasctruture/config/runner/gitconfig:/etc/gitconfig:ro
+    -v /home/dnoulet/sources/go/infrastructure/certs/local-ca.crt:/usr/local/share/ca-certificates/local-dev-ca.crt:ro
+    -v /home/dnoulet/sources/go/infrastructure/config/runner/gitconfig:/etc/gitconfig:ro
+    --group-add 967
     -e NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/local-dev-ca.crt
   valid_volumes:
-    - /home/dnoulet/go/infrasctruture/certs/local-ca.crt
-    - /home/dnoulet/go/infrasctruture/config/runner/gitconfig
+    - /home/dnoulet/sources/go/infrastructure/certs/local-ca.crt
+    - /home/dnoulet/sources/go/infrastructure/config/runner/gitconfig
+    - /var/run/docker.sock
   docker_host: unix:///var/run/docker.sock
   force_pull: true
-

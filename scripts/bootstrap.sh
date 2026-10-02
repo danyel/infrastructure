@@ -68,7 +68,7 @@ if [[ ! -s config/runner/.runner ]]; then
     --instance https://forgejo.dev \
     --token "$RUNNER_TOKEN" \
     --name local-docker-runner \
-    --labels docker:docker://node:20-bookworm,ubuntu-latest:docker://node:20-bookworm
+    --labels docker:docker://ghcr.io/catthehacker/ubuntu:act-22.04,ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04
 fi
 docker compose --profile runner up -d runner
 
