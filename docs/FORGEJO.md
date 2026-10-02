@@ -10,14 +10,14 @@ All generated values are in `secrets/credentials.md`.
 | Admin SSH private key | `secrets/forgejo-admin-ssh` | Local SSH client; never upload or commit |
 | Runner registration token | Site Administration > Actions > Runners | Registers the site-wide Docker runner |
 | `SONAR_TOKEN` | Repository/organization Settings > Actions > Secrets | Authenticates scans with SonarQube |
-| `SONAR_HOST_URL` | Repository/organization Settings > Actions > Variables | Must be `https://sonar.local` |
+| `SONAR_HOST_URL` | Repository/organization Settings > Actions > Variables | Must be `https://sonar.dev` |
 | Local CA certificate | `certs/local-ca.crt` | Trusts HTTPS from clients and CI jobs |
 
 Configure the generated SSH key locally:
 
 ```sshconfig
-Host forgejo.local
-  HostName forgejo.local
+Host forgejo.dev
+  HostName forgejo.dev
   Port 2222
   User git
   IdentityFile /home/dnoulet/go/infrasctruture/secrets/forgejo-admin-ssh
@@ -27,13 +27,13 @@ Host forgejo.local
 Test it:
 
 ```bash
-ssh -T forgejo.local
+ssh -T forgejo.dev
 ```
 
 Use an SSH repository remote:
 
 ```bash
-git remote add origin ssh://git@forgejo.local:2222/forgejo-admin/REPOSITORY.git
+git remote add origin ssh://git@forgejo.dev:2222/forgejo-admin/REPOSITORY.git
 ```
 
 ## SonarQube Actions example
@@ -74,9 +74,9 @@ sudo pacman -S --needed helm
 Add the private chart repository:
 
 ```bash
-helm repo add local https://helm.local \
+helm repo add local https://helm.dev \
   --username helm-admin \
-  --password 'PASSWORD_FROM_secrets/credentials.md' \
+  --password '9c68d12548bfeaadfdb6b6a00a5b8d99d57f309e956f11a4' \
   --ca-file certs/local-ca.crt
 helm repo update
 ```
@@ -85,8 +85,8 @@ Upload a packaged chart:
 
 ```bash
 curl --fail --cacert certs/local-ca.crt \
-  -u 'helm-admin:PASSWORD_FROM_secrets/credentials.md' \
+  -u 'helm-admin:9c68d12548bfeaadfdb6b6a00a5b8d99d57f309e956f11a4' \
   --data-binary '@my-chart-0.1.0.tgz' \
-  https://helm.local/api/charts
+  https://helm.dev/api/charts
 ```
 

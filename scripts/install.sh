@@ -54,11 +54,8 @@ fi
 
 if [[ ! -f certs/local-dev.key ]]; then
   openssl genrsa -out certs/local-dev.key 4096
-  openssl req -new -sha256 \
-    -key certs/local-dev.key \
-    -out certs/local-dev.csr \
-    -subj "/CN=forgejo.local/O=Local Development"
-  cat > certs/local-dev.ext <<'EOF'
+fi
+cat > certs/local-dev.ext <<'EOF'
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage=digitalSignature,keyEncipherment
@@ -66,12 +63,44 @@ extendedKeyUsage=serverAuth
 subjectAltName=@alt_names
 
 [alt_names]
-DNS.1=forgejo.local
-DNS.2=sonar.local
-DNS.3=rancher.local
-DNS.4=helm.local
-DNS.5=traefik.local
+DNS.1=forgejo.dev
+DNS.2=sonar.dev
+DNS.3=rancher.dev
+DNS.4=helm.dev
+DNS.5=traefik.dev
+DNS.6=auth.dev
+DNS.7=*.auth.dev
+DNS.8=*.guess.dev
 EOF
+
+required_sans=(
+  "DNS:forgejo.dev"
+  "DNS:sonar.dev"
+  "DNS:rancher.dev"
+  "DNS:helm.dev"
+  "DNS:traefik.dev"
+  "DNS:auth.dev"
+  "DNS:*.auth.dev"
+  "DNS:*.guess.dev"
+)
+regenerate_certificate=false
+if [[ ! -f certs/local-dev.crt ]]; then
+  regenerate_certificate=true
+else
+  certificate_text="$(openssl x509 -in certs/local-dev.crt -noout -ext subjectAltName)"
+  for required_san in "${required_sans[@]}"; do
+    if [[ "$certificate_text" != *"$required_san"* ]]; then
+      regenerate_certificate=true
+      break
+    fi
+  done
+fi
+
+if [[ "$regenerate_certificate" == true ]]; then
+  openssl req -new -sha256 \
+    -key certs/local-dev.key \
+    -out certs/local-dev.csr \
+    -subj "/CN=auth.dev/O=Local Development"
   openssl x509 -req -sha256 -days 825 \
     -in certs/local-dev.csr \
     -CA certs/local-ca.crt \
@@ -84,7 +113,7 @@ chmod 600 certs/*.key .env
 
 if [[ ! -f secrets/forgejo-admin-ssh ]]; then
   ssh-keygen -q -t ed25519 -N "" \
-    -C "${FORGEJO_ADMIN_USER}@forgejo.local" \
+    -C "${FORGEJO_ADMIN_USER}@forgejo.dev" \
     -f secrets/forgejo-admin-ssh
 fi
 chmod 600 secrets/forgejo-admin-ssh
@@ -100,11 +129,11 @@ Generated: $(date --iso-8601=seconds)
 
 | Service | URL / host | Username | Password / key |
 |---|---|---|---|
-| Forgejo web | https://forgejo.local | \`${FORGEJO_ADMIN_USER}\` | \`${FORGEJO_ADMIN_PASSWORD}\` |
-| Forgejo SSH | ssh://git@forgejo.local:2222 | \`git\` | \`secrets/forgejo-admin-ssh\` |
-| SonarQube | https://sonar.local | \`admin\` | \`${SONAR_ADMIN_PASSWORD}\` |
-| Rancher | https://rancher.local | \`admin\` | \`${RANCHER_BOOTSTRAP_PASSWORD}\` |
-| ChartMuseum | https://helm.local | \`${CHARTMUSEUM_USER}\` | \`${CHARTMUSEUM_PASSWORD}\` |
+| Forgejo web | https://forgejo.dev | \`${FORGEJO_ADMIN_USER}\` | \`${FORGEJO_ADMIN_PASSWORD}\` |
+| Forgejo SSH | ssh://git@forgejo.dev:2222 | \`git\` | \`secrets/forgejo-admin-ssh\` |
+| SonarQube | https://sonar.dev | \`admin\` | \`${SONAR_ADMIN_PASSWORD}\` |
+| Rancher | https://rancher.dev | \`admin\` | \`${RANCHER_BOOTSTRAP_PASSWORD}\` |
+| ChartMuseum | https://helm.dev | \`${CHARTMUSEUM_USER}\` | \`${CHARTMUSEUM_PASSWORD}\` |
 
 The Forgejo API token, runner registration token, and SonarQube token are appended by
 \`scripts/bootstrap.sh\`. Database credentials are retained in the root-only \`.env\`.

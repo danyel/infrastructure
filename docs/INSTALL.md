@@ -20,7 +20,7 @@ All service names must resolve to the Docker host. If local DNS already provides
 these records, verify them with `getent hosts <name>`. Otherwise add:
 
 ```text
-127.0.0.1 forgejo.local sonar.local rancher.local helm.local traefik.local
+127.0.0.1 forgejo.dev sonar.dev rancher.dev helm.dev traefik.dev auth.dev nmbs.auth.dev ypto.auth.dev nmbs.guess.dev ypto.guess.dev
 ```
 
 to `/etc/hosts`:
@@ -47,7 +47,8 @@ The script creates:
 - `secrets/credentials.md`: documented user credentials (mode 0600)
 - `secrets/forgejo-admin-ssh`: Forgejo administrator SSH private key
 - `certs/local-ca.{crt,key}`: local certificate authority
-- `certs/local-dev.{crt,key}`: server certificate for all local names
+- `certs/local-dev.{crt,key}`: server certificate for the platform names,
+  `auth.dev`, `*.auth.dev`, and `*.guess.dev`
 - separate `config/`, `data/`, `charts/`, and `backups/` trees
 
 Back up the CA private key securely. Do not install or distribute
@@ -84,7 +85,10 @@ docker compose up -d
 docker compose ps
 ```
 
-The first SonarQube and Rancher startup can take several minutes. Follow logs with:
+The first SonarQube and Rancher startup can take several minutes. Rancher uses
+`config/rancher/entrypoint.sh` because `rancher/rancher:latest` runs a k3s
+cluster reset whenever its etcd directory exists, then exits. That restart loop
+makes `https://rancher.dev` return a bad gateway. Follow logs with:
 
 ```bash
 docker compose logs -f sonarqube rancher
@@ -109,7 +113,10 @@ token. Resulting secrets are in `secrets/credentials.md`.
 
 Then open each URL from the table in `README.md`. Rancher initially uses the
 bootstrap password from `secrets/credentials.md`; confirm the server URL is
-`https://rancher.local` at first login.
+`https://rancher.dev` at first login.
+
+Start Go Loose and Go Guess separately after the base proxy is running. Their
+setup and verification commands are in [Application HTTPS](APPLICATIONS.md).
 
 ## 8. Lifecycle
 

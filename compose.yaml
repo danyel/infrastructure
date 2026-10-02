@@ -24,10 +24,15 @@ services:
     networks:
       edge:
         aliases:
-          - forgejo.local
-          - sonar.local
-          - rancher.local
-          - helm.local
+          - forgejo.dev
+          - sonar.dev
+          - rancher.dev
+          - helm.dev
+          - auth.dev
+          - nmbs.auth.dev
+          - ypto.auth.dev
+          - nmbs.guess.dev
+          - ypto.guess.dev
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -67,10 +72,10 @@ services:
       FORGEJO__database__NAME: forgejo
       FORGEJO__database__USER: forgejo
       FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD}
-      FORGEJO__server__DOMAIN: forgejo.local
-      FORGEJO__server__ROOT_URL: https://forgejo.local/
+      FORGEJO__server__DOMAIN: forgejo.dev
+      FORGEJO__server__ROOT_URL: https://forgejo.dev/
       FORGEJO__server__HTTP_PORT: "3000"
-      FORGEJO__server__SSH_DOMAIN: forgejo.local
+      FORGEJO__server__SSH_DOMAIN: forgejo.dev
       FORGEJO__server__SSH_PORT: "2222"
       FORGEJO__server__START_SSH_SERVER: "true"
       FORGEJO__server__SSH_LISTEN_PORT: "2222"
@@ -90,7 +95,7 @@ services:
       forgejo-backend: {}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.forgejo.rule: Host(`forgejo.local`)
+      traefik.http.routers.forgejo.rule: Host(`forgejo.dev`)
       traefik.http.routers.forgejo.entrypoints: websecure
       traefik.http.routers.forgejo.tls: "true"
       traefik.http.services.forgejo.loadbalancer.server.port: "3000"
@@ -112,7 +117,7 @@ services:
       - ./certs/local-ca.crt:/certs/local-ca.crt:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - edge
+      edge: {}
 
   sonar-db:
     image: ${POSTGRES_IMAGE}
@@ -151,7 +156,7 @@ services:
       sonar-backend: {}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.sonarqube.rule: Host(`sonar.local`)
+      traefik.http.routers.sonarqube.rule: Host(`sonar.dev`)
       traefik.http.routers.sonarqube.entrypoints: websecure
       traefik.http.routers.sonarqube.tls: "true"
       traefik.http.services.sonarqube.loadbalancer.server.port: "9000"
@@ -162,14 +167,16 @@ services:
     privileged: true
     environment:
       CATTLE_BOOTSTRAP_PASSWORD: ${RANCHER_BOOTSTRAP_PASSWORD}
-      CATTLE_SERVER_URL: https://rancher.local
+      CATTLE_SERVER_URL: https://rancher.dev
     volumes:
       - ./data/rancher:/var/lib/rancher
+      # Image entrypoint resets k3s whenever etcd exists and then crash-loops.
+      - ./config/rancher/entrypoint.sh:/usr/bin/entrypoint.sh:ro
     networks:
       edge: {}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.rancher.rule: Host(`rancher.local`)
+      traefik.http.routers.rancher.rule: Host(`rancher.dev`)
       traefik.http.routers.rancher.entrypoints: websecure
       traefik.http.routers.rancher.tls: "true"
       traefik.http.services.rancher.loadbalancer.server.port: "80"
@@ -191,7 +198,7 @@ services:
       edge: {}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.chartmuseum.rule: Host(`helm.local`)
+      traefik.http.routers.chartmuseum.rule: Host(`helm.dev`)
       traefik.http.routers.chartmuseum.entrypoints: websecure
       traefik.http.routers.chartmuseum.tls: "true"
       traefik.http.services.chartmuseum.loadbalancer.server.port: "8080"

@@ -9,7 +9,7 @@ Generated credentials are intentionally recorded only in the gitignored
 2. Confirmed host capacity: 32 GB RAM, 24 CPUs, and approximately 1.8 TB free.
 3. Confirmed ports 80, 443, and 2222 were unused.
 4. Confirmed `vm.max_map_count=1048576`, sufficient for SonarQube.
-5. Selected the requested Compose architecture with ChartMuseum at `helm.local`.
+5. Selected the requested Compose architecture with ChartMuseum at `helm.dev`.
 6. Created separated configuration, data, certificate, secret, chart, and backup
    paths; Compose services; TLS routing; bootstrap/verification/backup scripts;
    and installation/migration documentation.
@@ -39,7 +39,7 @@ Generated credentials are intentionally recorded only in the gitignored
     `data/rancher` tree because the image couples it to embedded-k3s state.
 14. Installed the local CA trust anchor and static host records through `pkexec`.
     Moved NSS `files` lookup ahead of `mdns_minimal` (with a timestamped
-    `/etc/nsswitch.conf` backup) because `.local` mDNS negative results otherwise
+    `/etc/nsswitch.conf` backup) because `.dev` mDNS negative results otherwise
     prevented applications from consulting `/etc/hosts`.
 15. Completed idempotent bootstrap and verified Forgejo, the Actions runner,
    SonarQube, Rancher, ChartMuseum, hostname resolution, system CA trust, and
@@ -48,6 +48,11 @@ Generated credentials are intentionally recorded only in the gitignored
    archive root-owned Rancher state through a container while leaving the
    backup user-owned, then verified service restart and endpoints.
 17. Initialized local Git history containing only reproducible infrastructure,
+18. `https://rancher.dev` returned 502 because `rancher/rancher:latest` resets
+    embedded k3s on every start when `server/db/etcd` exists. k3s exits and asks
+    to restart without `--cluster-reset`, so the container never listens on port
+    80. Mounted `config/rancher/entrypoint.sh`, which resets only when
+    `server/db/reset-flag` is present, and removed the leftover flag.
    scripts, templates, and documentation. Runtime data, credentials, keys,
    certificates, runner registration, and backups remain ignored.
 18. Installed the host Helm CLI from the Arch repository (`v4.2.2`) through

@@ -24,16 +24,16 @@ check() {
 }
 
 docker compose --profile runner ps
-check Forgejo https://forgejo.local/api/healthz
+check Forgejo https://forgejo.dev/api/healthz
 
 for ((i=1; i<=180; i++)); do
   SONAR_STATUS="$(curl --fail --silent --show-error --noproxy '*' \
     --cacert certs/local-ca.crt \
-    --resolve sonar.local:443:127.0.0.1 \
-    https://sonar.local/api/system/status 2>/dev/null |
+    --resolve sonar.dev:443:127.0.0.1 \
+    https://sonar.dev/api/system/status 2>/dev/null |
     jq -r '.status // empty' 2>/dev/null || true)"
   if [[ "$SONAR_STATUS" == "UP" ]]; then
-    printf '[OK] SonarQube: https://sonar.local (UP)\n'
+    printf '[OK] SonarQube: https://sonar.dev (UP)\n'
     break
   fi
   if ((i == 180)); then
@@ -43,19 +43,19 @@ for ((i=1; i<=180; i++)); do
   sleep 5
 done
 
-check Rancher https://rancher.local/ping
+check Rancher https://rancher.dev/ping
 
 for ((i=1; i<=180; i++)); do
   if curl --fail --silent --show-error --noproxy '*' \
     --cacert certs/local-ca.crt \
-    --resolve helm.local:443:127.0.0.1 \
+    --resolve helm.dev:443:127.0.0.1 \
     -u "${CHARTMUSEUM_USER}:${CHARTMUSEUM_PASSWORD}" \
-    https://helm.local/health >/dev/null 2>&1; then
-    printf '[OK] ChartMuseum: https://helm.local\n'
+    https://helm.dev/health >/dev/null 2>&1; then
+    printf '[OK] ChartMuseum: https://helm.dev\n'
     break
   fi
   if ((i == 180)); then
-    printf '[FAIL] ChartMuseum: https://helm.local\n' >&2
+    printf '[FAIL] ChartMuseum: https://helm.dev\n' >&2
     exit 1
   fi
   sleep 5
