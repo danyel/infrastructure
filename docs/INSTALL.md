@@ -88,7 +88,9 @@ docker compose ps
 The first SonarQube and Rancher startup can take several minutes. Rancher uses
 `config/rancher/entrypoint.sh` because `rancher/rancher:latest` runs a k3s
 cluster reset whenever its etcd directory exists, then exits. That restart loop
-makes `https://rancher.dev` return a bad gateway. Follow logs with:
+makes `https://rancher.dev` return a bad gateway. Its address on `edge` is
+pinned to `172.18.0.2`; changing it leaves embedded k3s looking for the old
+node IP. Follow logs with:
 
 ```bash
 docker compose logs -f sonarqube rancher

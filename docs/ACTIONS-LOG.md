@@ -52,7 +52,11 @@ Generated credentials are intentionally recorded only in the gitignored
     embedded k3s on every start when `server/db/etcd` exists. k3s exits and asks
     to restart without `--cluster-reset`, so the container never listens on port
     80. Mounted `config/rancher/entrypoint.sh`, which resets only when
-    `server/db/reset-flag` is present, and removed the leftover flag.
+    `server/db/reset-flag` is present, and removed the leftover flag. After that,
+    k3s still rejected ports 80 and 443 because a stuck `kube-system/traefik`
+    LoadBalancer had no endpoints. Removed its load-balancer finalizer so the
+    service could finish deleting. Pinned Rancher to `172.18.0.2` so a recreate
+    does not revive the stale node-IP failure.
    scripts, templates, and documentation. Runtime data, credentials, keys,
    certificates, runner registration, and backups remain ignored.
 18. Installed the host Helm CLI from the Arch repository (`v4.2.2`) through
