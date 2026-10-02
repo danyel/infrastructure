@@ -16,4 +16,5 @@ config/sonarqube/*
 !config/sonarqube/.gitkeep
 config/rancher/*
 !config/rancher/.gitkeep
+!config/rancher/entrypoint.sh
 
