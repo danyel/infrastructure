@@ -1,4 +1,4 @@
-1name: ${COMPOSE_PROJECT_NAME:-local-dev-platform}
+name: ${COMPOSE_PROJECT_NAME:-local-dev-platform}
 
 services:
   traefik:
