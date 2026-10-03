@@ -71,6 +71,7 @@ DNS.5=traefik.dev
 DNS.6=auth.dev
 DNS.7=*.auth.dev
 DNS.8=*.guess.dev
+DNS.9=tell.dev
 EOF
 
 required_sans=(
@@ -82,6 +83,7 @@ required_sans=(
   "DNS:auth.dev"
   "DNS:*.auth.dev"
   "DNS:*.guess.dev"
+  "DNS:tell.dev"
 )
 regenerate_certificate=false
 if [[ ! -f certs/local-dev.crt ]]; then

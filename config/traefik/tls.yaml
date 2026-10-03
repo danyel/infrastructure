@@ -40,6 +40,11 @@ http:
       entryPoints: [websecure]
       tls: {}
       service: go-guess
+    go-tell:
+      rule: Host(`tell.dev`)
+      entryPoints: [websecure]
+      tls: {}
+      service: go-tell
   services:
     forgejo:
       loadBalancer:
@@ -65,3 +70,7 @@ http:
       loadBalancer:
         servers:
           - url: http://go-guess-web:80
+    go-tell:
+      loadBalancer:
+        servers:
+          - url: http://go-tell:8080

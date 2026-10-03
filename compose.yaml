@@ -33,6 +33,7 @@ services:
           - ypto.auth.dev
           - nmbs.guess.dev
           - ypto.guess.dev
+          - tell.auth.dev
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s

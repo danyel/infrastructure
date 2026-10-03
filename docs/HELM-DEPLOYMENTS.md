@@ -9,6 +9,10 @@ create a downstream Kubernetes cluster in Rancher first, then download that
 cluster's kubeconfig. Do not deploy applications into Rancher's internal k3s
 cluster.
 
+For the single-node cluster reached through `~/.kube/config`, including the
+storage class, ingress controller, cert-manager, and tenant HTTPS hosts, see
+[Kubernetes deployments](KUBERNETES-DEPLOYMENTS.md).
+
 ## Prerequisites
 
 - The infrastructure stack and runner are running:
@@ -113,9 +117,9 @@ printf '%s' "$CHARTMUSEUM_PASSWORD" |
   helm repo add local https://helm.dev \
     --username "$CHARTMUSEUM_USERNAME" \
     --password-stdin \
-    --ca-file certs/local-ca.crt
+    --ca-file ~/sources/go/infrastructure/certs/local-ca.crt
 helm repo update local
-helm search repo local/my-app --versions
+helm search repo local/go-guess --versions
 ```
 
 Helm stores repository credentials in its user configuration. Remove the entry
