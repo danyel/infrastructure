@@ -25,15 +25,25 @@ services:
       edge:
         aliases:
           - forgejo.dev
+          - forgejo.urpi.be
           - sonar.dev
+          - sonar.urpi.be
           - rancher.dev
+          - rancher.urpi.be
           - helm.dev
+          - helm.urpi.be
           - auth.dev
+          - auth.urpi.be
           - nmbs.auth.dev
+          - nmbs.auth.urpi.be
           - ypto.auth.dev
+          - ypto.auth.urpi.be
           - nmbs.guess.dev
+          - nmbs.guess.urpi.be
           - ypto.guess.dev
+          - ypto.guess.urpi.be
           - tell.auth.dev
+          - tell.auth.urpi.be
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s

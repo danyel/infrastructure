@@ -11,37 +11,37 @@ tls:
 http:
   routers:
     forgejo:
-      rule: Host(`forgejo.dev`)
+      rule: Host(`forgejo.dev`) || Host(`forgejo.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: forgejo
     sonarqube:
-      rule: Host(`sonar.dev`)
+      rule: Host(`sonar.dev`) || Host(`sonar.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: sonarqube
     rancher:
-      rule: Host(`rancher.dev`)
+      rule: Host(`rancher.dev`) || Host(`rancher.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: rancher
     chartmuseum:
-      rule: Host(`helm.dev`)
+      rule: Host(`helm.dev`) || Host(`helm.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: chartmuseum
     go-loose:
-      rule: Host(`auth.dev`) || HostRegexp(`[a-z0-9-]+\.auth\.dev`)
+      rule: Host(`auth.dev`) || HostRegexp(`[a-z0-9-]+\.auth\.dev`) || Host(`auth.urpi.be`) || HostRegexp(`[a-z0-9-]+\.auth\.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: go-loose
     go-guess:
-      rule: HostRegexp(`[a-z0-9-]+\.guess\.dev`)
+      rule: HostRegexp(`[a-z0-9-]+\.guess\.dev`) || HostRegexp(`[a-z0-9-]+\.guess\.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: go-guess
     go-tell:
-      rule: Host(`tell.dev`)
+      rule: Host(`tell.dev`) || Host(`tell.urpi.be`)
       entryPoints: [websecure]
       tls: {}
       service: go-tell

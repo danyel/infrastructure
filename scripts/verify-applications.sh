@@ -20,3 +20,14 @@ check "Go Guess YPTO" "ypto.guess.dev" "/api/health"
 # Go Tell is served from the cluster in production and from the workstation
 # Traefik for demos, so only the endpoint is checked here.
 check "Go Tell" "tell.dev" "/health"
+
+# The same names under the root domain exist only when the simulation is
+# configured, so a missing name is reported rather than failed.
+for simulated in auth.urpi.be/healthz tell.urpi.be/health nmbs.guess.urpi.be/api/health; do
+  host="${simulated%%/*}"
+  if [[ -n "$(getent hosts "$host" || true)" ]]; then
+    check "simulated $host" "$host" "/${simulated#*/}"
+  else
+    printf '[SKIP] %s is not in /etc/hosts\n' "$host"
+  fi
+done

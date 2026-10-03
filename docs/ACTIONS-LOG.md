@@ -93,3 +93,23 @@ Generated credentials are intentionally recorded only in the gitignored
    identical flow completes with curl and returns an authenticated session.
    Not treated as an application defect; recorded until it can be retested on
    an unloaded host.
+24. Added a production simulation on the real `urpi.be` domain with a
+   workstation `/etc/hosts` override, so `auth.urpi.be`,
+   `<tenant>.auth.urpi.be`, `<tenant>.guess.urpi.be`, and `tell.urpi.be`
+   behave like a deployment instead of the `.dev` names. Subdomains were enough,
+   so no path-based fallback was needed: Go Loose derives the tenant host from
+   `GO_LOOSE_AUTH_DOMAIN`, and Go Guess requires `GO_LOOSE_APP_DOMAIN` to be
+   `guess.urpi.be` because `TenantFromHost` rejects more than one label before
+   the domain.
+25. The certificate needed four subject alternative names rather than two:
+   `urpi.be` and `*.urpi.be` leave `<tenant>.auth.urpi.be` uncovered, because a
+   wildcard matches a single label. `*.auth.urpi.be` and `*.guess.urpi.be` are
+   required, which is why the `.dev` set carries the same two shapes. The first
+   attempt failed the TLS handshake on the tenant hosts with `no alternative
+   certificate subject name matches target hostname`.
+26. `scripts/go-tell.sh urpi` derives the new routes from the existing ones by
+   replacing the TLD in each Traefik rule, so the `.dev` names keep answering
+   and a revert is one value per application. It also registers the new redirect
+   URIs per application, because Go Loose compares them exactly; an earlier
+   version added every simulated URI to every application and would have
+   accepted a callback meant for another tenant.

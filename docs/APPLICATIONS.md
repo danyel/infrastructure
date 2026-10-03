@@ -15,6 +15,21 @@ Add these names to `/etc/hosts`:
 127.0.0.1 tell.dev
 ```
 
+The production simulation adds the same names under one root domain, which
+`./scripts/go-tell.sh urpi` configures:
+
+```text
+127.0.0.1 forgejo.urpi.be sonar.urpi.be rancher.urpi.be helm.urpi.be
+127.0.0.1 auth.urpi.be nmbs.auth.urpi.be ypto.auth.urpi.be tell.auth.urpi.be
+127.0.0.1 nmbs.guess.urpi.be ypto.guess.urpi.be tell.urpi.be
+```
+
+`urpi.be` is a real domain, so this is a workstation simulation and not a
+replacement for the dedicated server. The certificate stays the platform one,
+which means only a machine that trusts `certs/local-ca.crt` accepts it. A
+wildcard covers one label, so the tenant subdomains need their own entries:
+`*.urpi.be` does not match `tell.auth.urpi.be`.
+
 Run the installer whenever the certificate is absent or predates application
 support:
 

@@ -324,6 +324,7 @@ release whose database must survive.
 | Kubernetes cluster | `tell.dev` | ingress-nginx and cert-manager in the cluster, single host |
 | Dedicated server | `goguess.urpi.be` | Host Nginx with Certbot, NodePort `31374` |
 | Identity | `auth.dev`, `nmbs.auth.dev` | Traefik router to Go Loose |
+| Workstation simulation | `*.urpi.be`, `*.auth.urpi.be`, `*.guess.urpi.be` | Traefik on the workstation, `/etc/hosts` override |
 
 Compose and Kubernetes use different parent domains on purpose. The Compose stack
 terminates TLS with the platform CA on the workstation, while the cluster

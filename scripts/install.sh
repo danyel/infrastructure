@@ -72,6 +72,10 @@ DNS.6=auth.dev
 DNS.7=*.auth.dev
 DNS.8=*.guess.dev
 DNS.9=tell.dev
+DNS.10=urpi.be
+DNS.11=*.urpi.be
+DNS.12=*.auth.urpi.be
+DNS.13=*.guess.urpi.be
 EOF
 
 required_sans=(
@@ -84,6 +88,10 @@ required_sans=(
   "DNS:*.auth.dev"
   "DNS:*.guess.dev"
   "DNS:tell.dev"
+  "DNS:urpi.be"
+  "DNS:*.urpi.be"
+  "DNS:*.auth.urpi.be"
+  "DNS:*.guess.urpi.be"
 )
 regenerate_certificate=false
 if [[ ! -f certs/local-dev.crt ]]; then

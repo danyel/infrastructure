@@ -14,6 +14,8 @@
 #   demo       open the applications in Firefox, one tab each
 #   record     record the screen while you walk through the demo
 #   teardown   remove the container, optionally the platform configuration
+#   urpi       serve every name under one root domain, then point the three
+#              applications at it
 #   all        identity, deploy, verify, demo
 #
 # Every path, name, domain, and image is a variable below and can be overridden
@@ -91,6 +93,15 @@ DATABASE_URL=${DATABASE_URL:-postgres://$GO_LOOSE_DB_USER:$GO_LOOSE_DB_PASSWORD@
 
 # Go Guess, the neighbouring application the demo visits.
 GO_GUESS_HOST=${GO_GUESS_HOST:-nmbs.guess.dev}
+GO_GUESS_DIR=${GO_GUESS_DIR:-$HOME/sources/go/go-guess}
+
+# Root domain for the production simulation. The tenant subdomains become
+# <tenant>.$URPI_AUTH_DOMAIN and <tenant>.$URPI_GUESS_DOMAIN, so no path-based
+# fallback is needed.
+URPI_ROOT=${URPI_ROOT:-urpi.be}
+URPI_AUTH_DOMAIN=${URPI_AUTH_DOMAIN:-auth.$URPI_ROOT}
+URPI_GUESS_DOMAIN=${URPI_GUESS_DOMAIN:-guess.$URPI_ROOT}
+URPI_TELL_HOST=${URPI_TELL_HOST:-tell.$URPI_ROOT}
 
 # Cluster, the durable target. Prerequisites are verified here and the release
 # itself goes through the Makefile target the application repository owns.
@@ -457,32 +468,52 @@ step_dns() {
 }
 
 # scripts/install.sh owns the certificate SAN list, so patch it there and
-# rebuild the extension file from the list it holds.
-step_cert() {
-  log "certificate SAN for $TELL_HOST"
-  if openssl x509 -in "$SERVER_CERT" -noout -ext subjectAltName 2>/dev/null | grep -q "DNS:$TELL_HOST"; then
-    log "certificate already covers $TELL_HOST"
+# rebuild the extension file from the list it holds. Takes the hosts to require.
+ensure_certificate_sans() {
+  local -a wanted=("$@")
+  ((${#wanted[@]} > 0)) || return 0
+  local missing=() host
+  for host in "${wanted[@]}"; do
+    if openssl x509 -in "$SERVER_CERT" -noout -ext subjectAltName 2>/dev/null |
+      grep -q "DNS:$host"; then
+      continue
+    fi
+    missing+=("$host")
+  done
+  if ((${#missing[@]} == 0)); then
+    log "certificate already covers ${wanted[*]}"
     return 0
   fi
-  confirm "add $TELL_HOST to $INFRA_INSTALL and reissue $(basename "$SERVER_CERT")?" || die "aborted"
+  confirm "add ${missing[*]} to $INFRA_INSTALL and reissue $(basename "$SERVER_CERT")?" ||
+    die "aborted"
   [[ -f $SERVER_KEY ]] || die "$SERVER_KEY does not exist, run the platform install first"
 
-  CERT_HOST="$TELL_HOST" CERT_INSTALL="$INFRA_INSTALL" python3 <<'PYTHON'
+  CERT_HOSTS="${missing[*]}" CERT_INSTALL="$INFRA_INSTALL" python3 <<'PYTHON'
 import os, re
 
-host, path = os.environ["CERT_HOST"], os.environ["CERT_INSTALL"]
-text = open(path).read()
-if f"DNS.{host}" not in text:
-    head, _, tail = text.partition("[alt_names]")
-    numbers = [int(number) for number in re.findall(r"^DNS\.(\d+)=", tail, flags=re.M)]
-    tail = tail.replace(f"DNS.{max(numbers) if numbers else 0}={host}\n", "")
-    tail = tail.rstrip("\n") + f"\nDNS.{max(numbers) + 1 if numbers else 1}={host}\n"
-    text = f"{head}[alt_names]{tail}"
-if f'"DNS:{host}"' not in text:
-    text = re.sub(r'(required_sans=\((?:.|\n)*?\n)(\))', rf'\1  "DNS:{host}"\n\2', text, count=1)
+hosts = os.environ["CERT_HOSTS"].split()
+path = os.environ["CERT_INSTALL"]
+lines = open(path).read().splitlines(keepends=True)
+
+# Rewrite the [alt_names] block in place, renumbered, with the new hosts last.
+start = next(index for index, line in enumerate(lines) if line.strip() == "[alt_names]")
+end = start + 1
+while end < len(lines) and re.match(r"^DNS\.\d+=", lines[end]):
+    end += 1
+names = [line.split("=", 1)[1].strip() for line in lines[start + 1:end]]
+for host in hosts:
+    if host not in names:
+        names.append(host)
+lines[start + 1:end] = [f"DNS.{index}={name}\n" for index, name in enumerate(names, start=1)]
+text = "".join(lines)
+
+for host in hosts:
+    if f'"DNS:{host}"' in text:
+        continue
+    text = re.sub(r"(required_sans=\((?:.|\n)*?\n)(\))", rf'\1  "DNS:{host}"\n\2', text, count=1)
 open(path, "w").write(text)
 PYTHON
-  log "added $TELL_HOST to $(basename "$INFRA_INSTALL")"
+  log "added ${missing[*]} to $(basename "$INFRA_INSTALL")"
 
   CERT_INSTALL="$INFRA_INSTALL" CERT_EXT="$SERVER_EXT" python3 <<'PYTHON'
 import os, re
@@ -509,6 +540,11 @@ PYTHON
   chmod 600 "$SERVER_KEY"
   openssl verify -CAfile "$CA_CERT" "$SERVER_CERT"
   log "reissued $(basename "$SERVER_CERT")"
+}
+
+step_cert() {
+  log "certificate SAN for $TELL_HOST"
+  ensure_certificate_sans "$TELL_HOST"
 }
 
 step_traefik() {
@@ -660,6 +696,192 @@ step_cluster() {
   log "verify from outside the cluster"
   curl --fail --silent --show-error --cacert "$CA_CERT" "https://$TELL_HOST/api/health" >/dev/null ||
     die "https://$TELL_HOST/api/health did not answer, check the ingress and the domain map"
+}
+
+# --------------------------------------------------------------------------- #
+# Production simulation: serve every name under one root domain
+# --------------------------------------------------------------------------- #
+# The root and the tenant subdomains replace the per-environment TLD, so
+# <tenant>.auth.<root> and <tenant>.guess.<root> work and no path-based
+# fallback is needed. The old names keep their routes.
+step_urpi_routers() {
+  log "Traefik routes for *.$URPI_ROOT"
+  ROUTER_SUFFIX=".$URPI_ROOT" ROUTER_FILE="$INFRA_TRAEFIK" python3 <<'PYTHON'
+import os, re
+
+suffix, path = os.environ["ROUTER_SUFFIX"], os.environ["ROUTER_FILE"]
+lines = open(path).read().splitlines(keepends=True)
+out, changed = [], 0
+for line in lines:
+    # One rule key per router: extend the existing rule instead of adding one.
+    match = re.match(r"^(\s+)rule: (\S.*?)\s*$", line.rstrip("\n"))
+    if match and ".dev" in match.group(2) and suffix not in match.group(2):
+        indent, rule = match.group(1), match.group(2)
+        out.append(f"{indent}rule: {rule} || {rule.replace('.dev', suffix)}\n")
+        changed += 1
+    else:
+        out.append(line)
+if changed:
+    open(path, "w").writelines(out)
+print(changed)
+PYTHON
+  grep -c "rule:" "$INFRA_TRAEFIK" | sed 's/^/    routers: /'
+  log "every .dev rule now also answers on .$URPI_ROOT"
+}
+
+step_urpi_aliases() {
+  log "Traefik network aliases for *.$URPI_ROOT"
+  ALIAS_SUFFIX=".$URPI_ROOT" ALIAS_FILE="$INFRA_COMPOSE" python3 <<'PYTHON'
+import os, re
+
+suffix, path = os.environ["ALIAS_SUFFIX"], os.environ["ALIAS_FILE"]
+lines = open(path).read().splitlines(keepends=True)
+existing = {line.strip() for line in lines}
+added, out, seen_urpi = [], [], False
+for line in lines:
+    out.append(line)
+    match = re.match(r"^(\s+)- ([a-z0-9.-]+)$", line)
+    if not match:
+        continue
+    indent, alias = match.group(1), match.group(2)
+    if not alias.endswith(".dev"):
+        continue
+    if any(candidate.endswith(suffix) for candidate in existing):
+        seen_urpi = True
+        continue
+    out.append(f"{indent}- {alias[:-4]}{suffix}\n")
+    added.append(alias[:-4] + suffix)
+if added and not seen_urpi:
+    open(path, "w").writelines(out)
+print("added:", " ".join(added) if added else "nothing")
+PYTHON
+  log "recreate Traefik so it serves the new aliases"
+}
+
+step_urpi_hosts() {
+  log "hostnames for *.$URPI_ROOT in $HOSTS_FILE"
+  local missing=() host
+  for host in "$URPI_ROOT" "$URPI_AUTH_DOMAIN" "$URPI_TELL_HOST" \
+    "$URPI_GUESS_DOMAIN" "nmbs.$URPI_AUTH_DOMAIN" "ypto.$URPI_AUTH_DOMAIN" \
+    "nmbs.$URPI_GUESS_DOMAIN" "ypto.$URPI_GUESS_DOMAIN"; do
+    grep -q "$host" "$HOSTS_FILE" || missing+=("$host")
+  done
+  if ((${#missing[@]} == 0)); then
+    log "already present"
+    return 0
+  fi
+  confirm "add ${missing[*]} to $HOSTS_FILE?" || die "aborted"
+  require sudo
+  sudo sed -i "1s/\$/ ${missing[*]}/" "$HOSTS_FILE"
+  grep -m1 '^127\.0\.0\.1' "$HOSTS_FILE"
+}
+
+# Point the three applications at the root domain. The values live in each
+# repository's gitignored .env, so the committed Compose defaults stay on the
+# development names and reverting is one edit per file.
+step_urpi_apps() {
+  log "application configuration for *.$URPI_ROOT"
+  require python3 docker
+
+  APP_ENV_FILE="$GO_LOOSE_DIR/.env" APP_VALUES="GO_LOOSE_BASE_URL=https://$URPI_AUTH_DOMAIN
+GO_LOOSE_AUTH_DOMAIN=$URPI_AUTH_DOMAIN
+GO_LOOSE_OIDC_REDIRECT_URL=https://$URPI_AUTH_DOMAIN/auth/callback" \
+    write_env_values
+  APP_ENV_FILE="$GO_GUESS_DIR/.env" APP_VALUES="GO_LOOSE_AUTH_DOMAIN=$URPI_AUTH_DOMAIN
+GO_LOOSE_APP_DOMAIN=$URPI_GUESS_DOMAIN
+FRONTEND_URL=https://nmbs.$URPI_GUESS_DOMAIN" \
+    write_env_values
+  APP_ENV_FILE="$GO_TELL_ENV" APP_VALUES="CMS_ALLOWED_ORIGINS=https://$URPI_TELL_HOST
+GO_LOOSE_TENANT=$GO_LOOSE_TENANT
+GO_LOOSE_AUTH_DOMAIN=$URPI_AUTH_DOMAIN
+GO_LOOSE_APP_DOMAIN=$URPI_TELL_HOST
+GO_LOOSE_CA_FILE=$CA_CERT" \
+    write_env_values
+
+  # Go Loose matches a redirect URI exactly, so each application has to
+  # register its own new host next to the old one. The client secret is
+  # untouched, and a URI that belongs to another application is removed again.
+  log "registering the $URPI_ROOT redirect URIs"
+  register_redirect_uris
+  docker exec "$GO_LOOSE_DB_CONTAINER" psql -U "$GO_LOOSE_DB_USER" -d "$GO_LOOSE_DB_NAME" \
+    -tAc "select t.slug || ' ' || a.redirect_uris from applications a join tenants t on t.id = a.tenant_id order by t.slug" |
+    sed 's/^/    /'
+}
+
+# Each application keeps only its own redirect URIs. A URI under the root
+# domain that belongs to another application is removed, so a misconfigured
+# host cannot be mistaken for a valid one.
+register_redirect_uris() {
+  docker exec -i "$GO_LOOSE_DB_CONTAINER" psql -q -U "$GO_LOOSE_DB_USER" \
+    -d "$GO_LOOSE_DB_NAME" -v ON_ERROR_STOP=1 -f - <<SQL
+UPDATE applications a
+   SET redirect_uris = (
+         SELECT coalesce(array_agg(uri), '{}'::text[])
+           FROM unnest(a.redirect_uris) AS uri
+          WHERE uri NOT LIKE '%$URPI_ROOT%')
+  FROM tenants t
+ WHERE t.id = a.tenant_id
+   AND t.slug IN ('$GO_LOOSE_TENANT', 'nmbs', 'ypto')
+   AND EXISTS (SELECT 1 FROM unnest(a.redirect_uris) uri WHERE uri LIKE '%$URPI_ROOT%');
+
+UPDATE applications a
+   SET redirect_uris = a.redirect_uris || CASE t.slug
+         WHEN '$GO_LOOSE_TENANT' THEN ARRAY['https://$URPI_TELL_HOST$CALLBACK_PATH']
+         WHEN 'nmbs' THEN ARRAY['https://nmbs.$URPI_GUESS_DOMAIN$CALLBACK_PATH']
+         WHEN 'ypto' THEN ARRAY['https://ypto.$URPI_GUESS_DOMAIN$CALLBACK_PATH']
+       END,
+       updated_at = now()
+  FROM tenants t
+ WHERE t.id = a.tenant_id AND t.slug IN ('$GO_LOOSE_TENANT', 'nmbs', 'ypto');
+
+SQL
+  docker exec "$GO_LOOSE_DB_CONTAINER" psql -U "$GO_LOOSE_DB_USER" -d "$GO_LOOSE_DB_NAME" \
+    -tAc "select t.slug || ' ' || a.redirect_uris from applications a join tenants t on t.id = a.tenant_id order by t.slug" |
+    sed 's/^/    /'
+}
+
+write_env_values() {
+  [[ -f $APP_ENV_FILE ]] || : >"$APP_ENV_FILE"
+  chmod 600 "$APP_ENV_FILE"
+  APP_VALUES="$APP_VALUES" python3 <<'PYTHON'
+import os, re
+
+path = os.environ["APP_ENV_FILE"]
+text = open(path).read()
+for line in os.environ["APP_VALUES"].splitlines():
+    if not line.strip():
+        continue
+    key, value = line.split("=", 1)
+    if re.search(rf"^{key}=.*$", text, flags=re.M):
+        text = re.sub(rf"^{key}=.*$", lambda match, line=line: line, text, flags=re.M)
+    else:
+        text = text.rstrip("\n") + f"\n{line}\n"
+open(path, "w").write(text)
+PYTHON
+  log "updated $(basename "$(dirname "$APP_ENV_FILE")")/$(basename "$APP_ENV_FILE")"
+}
+
+step_urpi_restart() {
+  log "restarting the applications on the new domain"
+  (cd "$GO_LOOSE_DIR" && docker compose up -d >/dev/null)
+  (cd "$GO_GUESS_DIR" && docker compose up -d >/dev/null)
+  step_container
+  sleep 5
+}
+
+step_urpi() {
+  warn "this serves the workstation names under $URPI_ROOT, which is a real domain"
+  step_urpi_hosts
+  # A wildcard covers one label only, so the tenant subdomains need their own
+  # wildcards: *.auth.urpi.be covers <tenant>.auth.urpi.be, not tell.urpi.be.
+  ensure_certificate_sans "$URPI_ROOT" "*.$URPI_ROOT" \
+    "*.$URPI_AUTH_DOMAIN" "*.$URPI_GUESS_DOMAIN"
+  step_urpi_routers
+  step_urpi_aliases
+  step_traefik_reload
+  step_urpi_apps
+  step_urpi_restart
+  log "$URPI_AUTH_DOMAIN, *.$URPI_AUTH_DOMAIN, *.$URPI_GUESS_DOMAIN, $URPI_TELL_HOST are live"
 }
 
 # --------------------------------------------------------------------------- #
@@ -836,6 +1058,8 @@ $SCRIPT_NAME: Go Tell on the local platform
   demo       open the applications in Firefox, one tab each
   record     record the screen while you walk through the demo
   teardown   remove the container, optionally the platform configuration
+  urpi       serve every name under one root domain, then point the three
+             applications at it
   all        identity, deploy, verify, demo
 
 Variables live at the top of the script and can be overridden from the
@@ -861,6 +1085,7 @@ case "$command" in
   demo)      step_demo ;;
   record)    step_record ;;
   teardown)  step_teardown ;;
+  urpi)      step_urpi ;;
   all)       step_identity; step_deploy; step_verify; step_demo ;;
   -h | --help | help) usage ;;
   *)         die "unknown command '$command', try --help" ;;
