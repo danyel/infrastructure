@@ -62,3 +62,34 @@ Generated credentials are intentionally recorded only in the gitignored
 18. Installed the host Helm CLI from the Arch repository (`v4.2.2`) through
    `pkexec`. The private repository command is documented but was not persisted,
    avoiding plaintext ChartMuseum credentials in Helm client configuration.
+19. Created the Go Loose `tell` tenant with the `Tell` application, its client
+   login redirect, and the `interview` and `reviewer` demo accounts. The
+   bootstrap runs Go Loose's own store code inside its module, because only a
+   system administrator may create a tenant and the stored client secret is a
+   hash. The generated secret and the rotated Go Guess ones are recorded only
+   in `secrets/credentials.md` and the gitignored application `.env` files.
+20. Go Tell could not be demoed from the cluster: the kubeconfig embeds the
+   Rancher certificate authority and every call fails with `x509: certificate
+   signed by unknown authority`, and `ingress-nginx`, `cert-manager`, and a
+   storage class are absent. Ran the same image behind the workstation Traefik
+   instead, with a `tell.dev` SAN added to `scripts/install.sh`, a router in
+   `config/traefik/tls.yaml`, and a `tell.auth.dev` alias on Traefik so the
+   proxy can resolve the tenant host inside the Docker network. The alias is
+   the reason a container needs it: Docker DNS has no tenant host entry.
+21. Collected the whole sequence into `scripts/go-tell.sh` so paths, domains,
+   and names are variables and every step is idempotent. `cluster` verifies
+   `ingressclass`, `storageclass`, and the cert-manager CRD before releasing,
+   and stops on the untrusted certificate authority above.
+22. `omarchy screenrecord --fullscreen` never starts on this host: its
+   `screenrecording_active` check runs `pgrep -f`, which walks `/proc` and
+   blocks for minutes. Cause is memory, not CPU: about 0.9 GB free of 31 GB
+   with the zram swap device full, load average near 59 while the CPU is 92
+   to 98 percent idle, so tasks wait in D-state on page-in and nothing
+   computes. Open GoLand windows are the likely consumer. Started
+   `gpu-screen-recorder` directly and stopped it with `SIGINT`, which
+   finalises the file.
+23. The Go Tell login redirect stalls in Firefox under the same pressure: Go
+   Loose receives `/connect/authorize` but the tab stays blank, while the
+   identical flow completes with curl and returns an authenticated session.
+   Not treated as an application defect; recorded until it can be retested on
+   an unloaded host.

@@ -17,3 +17,6 @@ openssl verify -CAfile certs/local-ca.crt certs/local-dev.crt
 check "Go Loose" "auth.dev" "/healthz"
 check "Go Guess NMBS" "nmbs.guess.dev" "/api/health"
 check "Go Guess YPTO" "ypto.guess.dev" "/api/health"
+# Go Tell is served from the cluster in production and from the workstation
+# Traefik for demos, so only the endpoint is checked here.
+check "Go Tell" "tell.dev" "/health"

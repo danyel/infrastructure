@@ -10,8 +10,9 @@ are never copied into an application image or committed.
 Add these names to `/etc/hosts`:
 
 ```text
-127.0.0.1 auth.dev nmbs.auth.dev ypto.auth.dev
+127.0.0.1 auth.dev nmbs.auth.dev ypto.auth.dev tell.auth.dev
 127.0.0.1 nmbs.guess.dev ypto.guess.dev
+127.0.0.1 tell.dev
 ```
 
 Run the installer whenever the certificate is absent or predates application
@@ -58,6 +59,32 @@ openssl verify -CAfile certs/local-ca.crt certs/local-dev.crt
 
 Or run `./scripts/verify-applications.sh` after both application stacks are up.
 
+## Go Tell
+
+Go Tell is released into the Kubernetes cluster, not into a Compose project, and
+takes its identity from Go Loose. Its identity-side setup and the demo harness
+are driven by one script:
+
+```bash
+./scripts/go-tell.sh identity   # Go Loose tenant, application, client login
+./scripts/go-tell.sh preflight  # ingress class, storage class, cert-manager CRD
+./scripts/go-tell.sh cluster    # release through the application Makefile
+./scripts/go-tell.sh deploy     # the same image behind the workstation Traefik
+./scripts/go-tell.sh verify     # endpoints, through verify-applications.sh
+./scripts/go-tell.sh teardown   # remove the demo harness
+```
+
+`deploy` exists because the cluster does not serve `tell.dev` yet. It adds the
+`tell.dev` certificate SAN through `scripts/install.sh`, the Traefik router, the
+`tell.auth.dev` network alias that lets Traefik resolve the tenant host, and
+then runs the image on `local-dev-edge`. `cluster` is the durable path: it stops
+on a missing prerequisite instead of deploying into a cluster that cannot serve
+the release.
+
+The client secret is hashed by Go Loose, so it is readable only where it was
+generated: the gitignored `secrets/credentials.md` and the gitignored `.env` of
+the application repository. `./scripts/go-tell.sh rotate` issues a new one and
+rewrites both.
 
 ### The Secure Way (Adding the CA Data)
 If you prefer to fix the error properly by making your local client trust the certificate, you need to pull Rancher's self-signed Root CA certificate and inject it directly into your kubeconfig.

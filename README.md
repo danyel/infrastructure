@@ -28,7 +28,10 @@ all of it follows [Platform guidelines](docs/GUIDELINES.md).
 Go Loose and Go Guess run from their own Compose projects and join the shared
 `local-dev-edge` network. See [Application HTTPS](docs/APPLICATIONS.md). Go Tell
 has no Compose project: it runs in the Kubernetes cluster behind ingress-nginx,
-while its identity comes from Go Loose in Compose.
+while its identity comes from Go Loose in Compose. Until that cluster serves it,
+`scripts/go-tell.sh deploy` runs the same image behind the workstation Traefik
+as a demo harness, and `scripts/go-tell.sh cluster` verifies the prerequisites
+before releasing the chart.
 
 > Rancher's privileged single-container installation is suitable for a local lab,
 > not production. It can manage external/imported Kubernetes clusters, but it is
