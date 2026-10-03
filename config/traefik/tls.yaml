@@ -45,6 +45,19 @@ http:
       entryPoints: [websecure]
       tls: {}
       service: go-tell
+    traefik:
+      rule: Host(`traefik.dev`) || Host(`traefik.urpi.be`)
+      entryPoints: [websecure]
+      tls: {}
+      service: api@internal
+      middlewares: [traefik-auth]
+  middlewares:
+    # The dashboard is an admin interface, so it is never left open. The hash
+    # lives in a gitignored file next to the certificate and is generated with
+    # bcrypt, the only format Traefik accepts for basic auth.
+    traefik-auth:
+      basicAuth:
+        usersFile: /certs/traefik-dashboard-users
   services:
     forgejo:
       loadBalancer:

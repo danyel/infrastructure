@@ -324,6 +324,7 @@ release whose database must survive.
 | Kubernetes cluster | `tell.dev` | ingress-nginx and cert-manager in the cluster, single host |
 | Dedicated server | `goguess.urpi.be` | Host Nginx with Certbot, NodePort `31374` |
 | Identity | `auth.dev`, `nmbs.auth.dev` | Traefik router to Go Loose |
+| Proxy dashboard | `traefik.dev`, `traefik.urpi.be` | Traefik router to `api@internal` behind basic auth |
 | Workstation simulation | `*.urpi.be`, `*.auth.urpi.be`, `*.guess.urpi.be` | Traefik on the workstation, `/etc/hosts` override |
 
 Compose and Kubernetes use different parent domains on purpose. The Compose stack

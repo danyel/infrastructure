@@ -113,3 +113,14 @@ Generated credentials are intentionally recorded only in the gitignored
    URIs per application, because Go Loose compares them exactly; an earlier
    version added every simulated URI to every application and would have
    accepted a callback meant for another tenant.
+27. Served the Traefik dashboard on `traefik.dev` and `traefik.urpi.be`, which
+   previously had no router and answered 404 while both names sat in
+   `/etc/hosts`. The router points at `api@internal`, and an admin interface is
+   never left open, so basic auth sits in front of it with a bcrypt hash in the
+   gitignored `certs/traefik-dashboard-users`. Traefik accepts bcrypt only, and
+   the workstation had neither `htpasswd` nor a Go bcrypt tool available, so the
+   hash came from a throwaway program against the existing module cache.
+   Unauthenticated and wrong-password requests return 401; the credential in
+   `secrets/credentials.md` returns the dashboard. The router was written with
+   the `.dev` host alone, so `urpi` derived the `.urpi.be` form like every other
+   route.

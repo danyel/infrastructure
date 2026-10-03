@@ -12,6 +12,7 @@ and persistent data:
 | Go Loose | https://auth.dev | System and tenant authentication |
 | Go Guess | https://nmbs.guess.dev | Tenant application, Compose stack |
 | Go Tell | https://tell.dev | Content CMS, Kubernetes release |
+| Traefik | https://traefik.dev | Proxy dashboard, basic auth |
 | Forgejo SSH | `ssh://git@forgejo.dev:2222` | Git over SSH |
 
 Start with [docs/INSTALL.md](docs/INSTALL.md). Generated credentials are written to
